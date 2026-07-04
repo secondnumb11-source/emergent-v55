@@ -1,0 +1,24 @@
+{
+  "name": "adala-najiz-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "بوت أتمتة RPA لسحب بيانات ناجز وإرسالها لنظام منصة العدالة (Playwright)",
+  "main": "najiz-bot.js",
+  "scripts": {
+    "start": "node najiz-bot.js",
+    "start:playwright": "node najiz-bot.js",
+    "start:puppeteer": "node najiz-bot.puppeteer.js",
+    "start:selenium": "node najiz-bot.selenium.js",
+    "install-browser": "playwright install chromium",
+    "install-all": "npm install && npm run install-browser"
+  },
+  "dependencies": {
+    "chromedriver": "^116.0.0",
+    "dotenv": "^16.4.5",
+    "playwright": "^1.49.0",
+    "puppeteer-core": "^22.0.0",
+    "selenium-webdriver": "^4.19.0",
+    "ws": "^8.21.0",
+    "xlsx": "^0.18.5"
+  }
+}

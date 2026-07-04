@@ -1,0 +1,38 @@
+[
+  {
+    "content": "Build smart Najiz parsing engine (space-insensitive, cut-at-next-label, junk stripping, de-glue)",
+    "status": "in_progress"
+  },
+  {
+    "content": "Fix case matching (glued case numbers) + apply parser to cases cards/details, smaller luxe cards",
+    "status": "pending"
+  },
+  {
+    "content": "Apply parser to powers of attorney cards + details modal",
+    "status": "pending"
+  },
+  {
+    "content": "Apply parser to executions cards + details",
+    "status": "pending"
+  },
+  {
+    "content": "Apply RLS migration: employee assigned_cases/clients actually grant data access",
+    "status": "pending"
+  },
+  {
+    "content": "Employee portal: render permitted sections/cases/clients, fix template (link, access code persistence)",
+    "status": "pending"
+  },
+  {
+    "content": "Client portal: reliable welcome template after save/update, perf fixes",
+    "status": "pending"
+  },
+  {
+    "content": "Seed test accounts (lawyer/employee/client) + blob test data, write test_credentials.md",
+    "status": "pending"
+  },
+  {
+    "content": "End-to-end testing via testing agent (cards parsing + employee portal permissions + templates)",
+    "status": "pending"
+  }
+]

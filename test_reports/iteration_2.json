@@ -1,0 +1,58 @@
+{
+  "summary": "Completed smoke test validation for imported Arabic RTL legal case management platform (emergent-v2). Fixed critical Supabase client initialization bug where hardcoded fallbacks were not being used. All public pages load correctly, auth page renders with full functionality, Supabase connectivity confirmed via invalid login error handling, and API proxy chain validated.",
+  "backend_issues": {
+    "critical_bugs": [],
+    "flaky_endpoints": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "warnings": [
+      {
+        "component": "Hero section animated particles",
+        "issue": "React SSR hydration mismatch warnings due to Math.random() in particle animations",
+        "impact": "Cosmetic only - does not affect functionality",
+        "fix_priority": "LOW",
+        "note": "Known issue from iteration_1 - particles use random positions/delays which differ between server and client render"
+      }
+    ]
+  },
+  "passed_tests": [
+    "Landing page (/) loads at preview URL with Arabic RTL marketing content ('منصة العدالة لإدارة مكاتب المحاماة')",
+    "Hero section renders with 3D text effects and animated particles",
+    "All navigation links present and functional: المميزات (#features), الذكاء الاصطناعي (#ai), المقارنة (#comparison), الأمان (#security), الأسئلة الشائعة (#faq)",
+    "Stats section displays: 100% فوترة الزكاة, 99.9% تسليم الواتساب, 98.4% دقة الصياغة, 24/7 دعم فني",
+    "Features grid renders with 9 feature cards (AI assistant, Najiz sync, WhatsApp, ZATCA invoices, etc.)",
+    "Login button ('دخول') navigates to /auth page successfully",
+    "/auth page renders with 'أهلاً بعودتك' heading and RTL layout",
+    "Account type selector displays all three options: محامٍ / مكتب (Lawyer), عميل (Client), موظف (Employee)",
+    "Account type buttons are interactive and show selected state with gold border",
+    "Login/Signup tabs render: 'دخول' (Login) and 'حساب جديد' (Signup)",
+    "Email input field present with Mail icon and RTL placeholder",
+    "Password input field present with Lock icon and masked input",
+    "Google login button visible: 'المتابعة باستخدام Google' with Google logo",
+    "Portal code field appears for Client/Employee account types (conditional rendering works)",
+    "Invalid login (invalid@test.com / wrongpassword123) shows proper Arabic error: 'بيانات الدخول غير صحيحة'",
+    "Supabase connectivity CONFIRMED - live authentication against external Supabase (https://sofurxihjwgmbosyzeib.supabase.co)",
+    "Error messages display via toast notifications (Sonner) in Arabic",
+    "Navigation back to home page (/) works via browser back button and home link",
+    "Client-side routing works without page refresh",
+    "API proxy chain validated: GET /api/public/system-check returns 401 Unauthorized (EXPECTED - proves ingress→backend:8001→frontend:3000 routing works)",
+    "No JavaScript page errors or exceptions detected",
+    "No red error screen or blank page on any tested route",
+    "Vite HMR (Hot Module Replacement) working correctly after code changes"
+  ],
+  "test_report_links": [],
+  "action_item_for_main_agent": "",
+  "updated_files": [
+    "/app/frontend/src/integrations/supabase/client.ts"
+  ],
+  "success_percentage": {
+    "frontend": "100%",
+    "backend_proxy": "100%",
+    "supabase_integration": "100%"
+  },
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_test_itself": false
+}
