@@ -84,6 +84,38 @@ export function formatDate(dateStr: string | null | undefined) {
   }
 }
 
+// Placeholder rows synthesized from sessions/bot ("قضية (من جلسة) — unknown_…")
+// and English enum values must never surface as display values.
+const PLACEHOLDER_RE = /^قضية \(من جلسة\)|^unknown[_-]?/i;
+const ENUM_JUNK = new Set([
+  "other",
+  "labor",
+  "civil",
+  "commercial",
+  "criminal",
+  "family",
+  "administrative",
+  "general",
+  "unknown",
+]);
+
+function usable(v: any): string | undefined {
+  if (v == null) return undefined;
+  const s = String(v).trim();
+  if (!s) return undefined;
+  if (PLACEHOLDER_RE.test(s)) return undefined;
+  if (ENUM_JUNK.has(s.toLowerCase())) return undefined;
+  return s;
+}
+
+/** Reject over-long values that indicate a mis-sliced blob leaked through. */
+function capped(v: string | null | undefined, max: number): string | null {
+  if (!v) return null;
+  const s = String(v).trim();
+  if (!s || s.length > max) return null;
+  return s;
+}
+
 export function buildCaseView(
   c: any,
   details: any,
@@ -116,42 +148,54 @@ export function buildCaseView(
       (a: any, b: any) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime(),
     );
 
-  const classification = pickFirst(
-    "classification",
-    details?.case_classification,
-    c.case_classification,
-    c.title,
-    details?.subject_matter,
-    c.subject_matter,
+  const classification = capped(
+    pickFirst(
+      "classification",
+      usable(details?.case_classification),
+      usable(c.case_classification),
+    ),
+    90,
   );
-  const typeDetail = pickFirst(
-    "type",
-    details?.case_type_detail,
-    c.case_type,
-    details?.case_classification,
-    c.title,
+  const typeDetail = capped(
+    pickFirst(
+      "type",
+      usable(details?.case_type_detail),
+      usable(c.case_type_name),
+      usable(c.case_type),
+      usable(details?.case_classification),
+    ),
+    140,
   );
-  const court = pickFirst(
-    "court",
-    details?.court_name,
-    c.court,
-    firstJudgment?.court_name,
-    caseSessions[0]?.court_name,
+  const court = capped(
+    pickFirst(
+      "court",
+      usable(details?.court_name),
+      usable(c.court),
+      usable(firstJudgment?.court_name),
+      usable(caseSessions[0]?.court_name),
+    ),
+    100,
   );
-  const circuit = pickFirst(
-    "circuit",
-    details?.circuit_number,
-    c.circuit_number,
-    firstJudgment?.circuit_number,
-    caseSessions[0]?.circuit_number,
+  const circuit = capped(
+    pickFirst(
+      "circuit",
+      usable(details?.circuit_number),
+      usable(c.circuit_number),
+      usable(firstJudgment?.circuit_number),
+      usable(caseSessions[0]?.circuit_number),
+    ),
+    60,
+  );
+  const degree = capped(
+    usable(c.degree) || usable(details?.degree) || usable(firstJudgment?.degree) || null,
+    60,
   );
   const subjectMatter = pickFirst(
     "subject",
-    details?.subject_matter,
-    c.subject_matter,
-    c.case_subject,
-    c.description,
-    c.title,
+    usable(details?.subject_matter),
+    usable(c.subject_matter),
+    usable(c.case_subject),
+    usable(c.description),
   );
   const plaintiffRequests = pickFirst(
     "requests",
@@ -164,13 +208,27 @@ export function buildCaseView(
     c.case_foundations,
     c.case_grounds,
   );
-  const caseDate = pickFirst("caseDate", details?.case_date, c.case_date);
-  const plaintiffNames = plaintiffFromParties || pickFirst("plaintiff", c.plaintiff_name) || "";
-  const defendantNames = defendantFromParties || pickFirst("defendant", c.defendant_name) || "";
-  const deedNumber = firstJudgment?.deed_number || c.deed_number || c.judgment_number || null;
+  const caseDate = pickFirst(
+    "caseDate",
+    usable(details?.case_date),
+    usable(c.case_date),
+    usable(c.case_date_hijri),
+  );
+  const titleForParties =
+    usable(c.title) && /المدعي/.test(String(c.title)) ? c.title : undefined;
+  const plaintiffNames =
+    plaintiffFromParties || pickFirst("plaintiff", usable(c.plaintiff_name), titleForParties) || "";
+  const defendantNames =
+    defendantFromParties || pickFirst("defendant", usable(c.defendant_name), titleForParties) || "";
+  const rawDeed = firstJudgment?.deed_number || c.deed_number || c.judgment_number || null;
+  const deedNumber = rawDeed
+    ? String(rawDeed).trim().length > 30
+      ? extractCaseNumber(String(rawDeed))
+      : String(rawDeed).trim()
+    : null;
   const deedDate = firstJudgment?.deed_date || c.deed_date || c.judgment_date || null;
 
-  const rawTitle = c.title && !looksLikeBlob(c.title) ? c.title : null;
+  const rawTitle = c.title && !looksLikeBlob(c.title) && usable(c.title) ? c.title : null;
   const title =
     rawTitle ||
     (plaintiffNames && defendantNames ? `${plaintiffNames} ضد ${defendantNames}` : null) ||
@@ -185,6 +243,7 @@ export function buildCaseView(
     typeDetail,
     court,
     circuit,
+    degree,
     subjectMatter,
     plaintiffRequests,
     caseFoundations,

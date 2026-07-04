@@ -14,6 +14,16 @@ import {
   BarChart3,
   Clock,
   AlertTriangle,
+  ShieldCheck,
+  Users2,
+  FileSignature,
+  Workflow,
+  Bell,
+  FolderArchive,
+  Sparkles,
+  Library,
+  Landmark,
+  BadgeCheck,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +64,23 @@ type Session = {
   notes: string | null;
 };
 
+// Sections the manager may grant — must mirror app.employee-portal.tsx SECTIONS.
+const SECTION_LINKS: { id: string; label: string; to: string; icon: any }[] = [
+  { id: "cases", label: "إدارة القضايا", to: "/app/cases", icon: Briefcase },
+  { id: "sessions", label: "مواعيد الجلسات", to: "/app/sessions", icon: CalendarDays },
+  { id: "clients", label: "العملاء", to: "/app/clients", icon: Users2 },
+  { id: "powers", label: "الوكالات القضائية", to: "/app/powers", icon: FileSignature },
+  { id: "execution", label: "طلبات التنفيذ", to: "/app/execution", icon: Workflow },
+  { id: "tasks", label: "المهام وتوزيع الأعمال", to: "/app/tasks", icon: ListChecks },
+  { id: "notifications", label: "إشعارات العملاء", to: "/app/notifications", icon: Bell },
+  { id: "archive", label: "أرشيف المستندات والأحكام", to: "/app/archive", icon: FolderArchive },
+  { id: "ai", label: "المساعد الذكي", to: "/app/ai", icon: Sparkles },
+  { id: "library", label: "المكتبة القانونية", to: "/app/library", icon: Library },
+  { id: "gov", label: "الخدمات الحكومية", to: "/app/gov", icon: Landmark },
+  { id: "verification", label: "خدمات التحقق", to: "/app/verification", icon: BadgeCheck },
+];
+const SECTION_ALIASES: Record<string, string> = { executions: "execution", poas: "powers" };
+
 export function EmployeePortalView({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [emp, setEmp] = useState<Employee | null>(null);
@@ -61,11 +88,12 @@ export function EmployeePortalView({ userId }: { userId: string }) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [unreadChat, setUnreadChat] = useState(0);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [allowedSections, setAllowedSections] = useState<string[]>([]);
 
   const load = async (uid: string) => {
     const { data: e } = await supabase
       .from("employees")
-      .select("id, full_name, job_title, owner_id, assigned_cases, portal_config")
+      .select("id, full_name, job_title, owner_id, assigned_cases, portal_config, permissions")
       .eq("user_id", uid)
       .maybeSingle();
     setEmp(e as Employee | null);
@@ -75,6 +103,13 @@ export function EmployeePortalView({ userId }: { userId: string }) {
     }
     // Prefer structured portal_config values when present
     const portalCfg = (e as any)?.portal_config ?? null;
+    const rawPerms: string[] =
+      Array.isArray(portalCfg?.permissions) && portalCfg.permissions.length
+        ? portalCfg.permissions
+        : Array.isArray((e as any).permissions)
+          ? ((e as any).permissions as string[])
+          : [];
+    setAllowedSections(rawPerms.map((s) => SECTION_ALIASES[s] || s));
     const assigned = Array.isArray(
       portalCfg?.assigned_cases ? portalCfg.assigned_cases : (e as any).assigned_cases,
     )
@@ -246,6 +281,36 @@ export function EmployeePortalView({ userId }: { userId: string }) {
       <p className="text-[11px] text-muted-foreground -mt-2">
         هذه المؤشرات تخصّك أنت فقط — لا تشمل بيانات بقية الفريق.
       </p>
+
+      {/* Sections granted by the office manager (applied permissions) */}
+      <Card className="p-5" dir="rtl" data-testid="employee-allowed-sections">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-extrabold flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-gold" /> الأقسام المتاحة لك
+          </h2>
+          <Badge variant="outline">{allowedSections.length}</Badge>
+        </div>
+        {allowedSections.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            لم تُحدَّد لك أقسام بعد — تظهر لك الأقسام الأساسية فقط. تواصل مع إدارة المكتب لتحديث
+            صلاحياتك.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+            {SECTION_LINKS.filter((s) => allowedSections.includes(s.id)).map((s) => (
+              <Link
+                key={s.id}
+                to={s.to as any}
+                data-testid={`employee-section-link-${s.id}`}
+                className="flex items-center gap-2 rounded-xl border border-gold/25 bg-gold/5 px-3 py-2.5 text-sm font-bold hover:bg-gold/15 hover:-translate-y-0.5 transition-all"
+              >
+                <s.icon className="h-4 w-4 text-gold shrink-0" />
+                <span className="truncate">{s.label}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card className="p-5" dir="rtl">
         <div className="flex items-center justify-between mb-3">

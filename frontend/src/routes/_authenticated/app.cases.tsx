@@ -494,7 +494,10 @@ function CasesPage() {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle id="case-detail-title" className="text-xl font-black text-[#1f1810]">
-                <span className="text-[#8a6a1a]">#{selectedCase?.case_number}</span> تفاصيل القضية
+                <span className="text-[#8a6a1a]">
+                  #{extractCaseNumber(selectedCase?.case_number) || selectedCase?.case_number}
+                </span>{" "}
+                تفاصيل القضية
               </DialogTitle>
               <Button
                 data-testid="case-detail-close-btn"
@@ -523,17 +526,17 @@ function CasesPage() {
               requests={getRequestsForCase(selectedCase)}
               onSave={(row: Record<string, unknown>) => upsert.mutateAsync(row)}
               onNavigateDocs={() => {
-                const cn = selectedCase.case_number;
+                const cn = extractCaseNumber(selectedCase.case_number) || selectedCase.case_number;
                 setSelectedCase(null);
                 navigate({ to: "/app/archive", search: { case: cn } as any });
               }}
               onNavigateSessions={() => {
-                const cn = selectedCase.case_number;
+                const cn = extractCaseNumber(selectedCase.case_number) || selectedCase.case_number;
                 setSelectedCase(null);
                 navigate({ to: "/app/sessions", search: { case: cn } as any });
               }}
               onNavigateRequests={() => {
-                const cn = selectedCase.case_number;
+                const cn = extractCaseNumber(selectedCase.case_number) || selectedCase.case_number;
                 setSelectedCase(null);
                 navigate({ to: "/app/lawsuit-requests", search: { case: cn } as any });
               }}

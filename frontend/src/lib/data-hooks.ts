@@ -32,6 +32,8 @@ export function useList<T = any>(table: TableName, orderBy = "created_at", asc =
       if (error) throw error;
       return (data ?? []) as T[];
     },
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 }
 

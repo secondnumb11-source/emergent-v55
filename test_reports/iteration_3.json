@@ -1,0 +1,76 @@
+{
+  "summary": "End-to-end frontend test of Arabic RTL legal platform (منصة العدالة). Fixed critical Supabase server-side env var fallbacks; verified Cases display parsing, sessions conflict banner, lawsuit requests grouping, and portal admin pages. Employee portal E2E provisioning workflow could NOT be fully exercised because there is no seeded employee record — the admin page shows 'لا يوجد موظفون مسجلون'. Auth post-login navigation is broken (navigate({to:'/app'}) does not fire; window.location workaround works).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AuthPage completeSignIn / router.navigate",
+        "issue": "After successful supabase.auth.signInWithPassword (200) and linkPortalAccount server-fn (200), navigate({to:'/app', replace:true}) does NOT navigate — user stays on /auth (URL becomes /auth?). Session IS written to localStorage correctly. Full-page window.location.assign('/app') works. Root cause likely: redirectingRef guards two concurrent completeSignIn calls (from handleSubmit and onAuthStateChange), and the second call silently returns. Even the first call's navigate() may be firing before router is ready. Consider awaiting a microtask or using window.location.assign as fallback when navigate({to:'/app'}) does not change URL within e.g. 1500ms.",
+        "selector": "/src/routes/auth.tsx: completeSignIn / handleSubmit",
+        "priority": "HIGH"
+      },
+      {
+        "component": "Vite dev-server dynamic imports",
+        "issue": "Intermittent 'Failed to fetch dynamically imported module: @tanstack/react-start/dist/plugin/default-entry/client.tsx' on route changes (seen on /app/employee-portal on first attempt). Second attempt succeeds. Vite optimizer thrashing during dev. Not a code bug per se, but signals Vite optimizeDeps churn — pin optimizeDeps.include for @tanstack packages.",
+        "selector": "vite dev server",
+        "priority": "MEDIUM"
+      },
+      {
+        "component": "Root layout hydration",
+        "issue": "React SSR hydration mismatch on <html>/<head>/<body> because data-tsd-source line numbers differ between SSR & client (src/routes/__root.tsx:162 vs 168). Cosmetic; React re-renders the tree.",
+        "selector": "/src/routes/__root.tsx",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Employee portal end-to-end test (user-requested critical scenario)",
+        "issue": "Could NOT execute full E2E (a→f) because /app/employee-portal shows 'لا يوجد موظفون مسجلون - أضف الموظفين أولاً من قسم بيانات الموظفين'. The seeded test data mentioned in agent-to-agent context (client عميل الاختبار QA is seeded but no employee) does not include a QA employee row. Employee portal admin page loads correctly; provisioning form logic could not be reached without first creating an employee via /app/employees.",
+        "affected_selectors": ["/app/employees", "/app/employee-portal"]
+      }
+    ],
+    "design_issues": []
+  },
+  "passed_tests": [
+    "Auth: login flow calls Supabase auth/v1/token (200) and linkPortalAccount server-fn (200); session persisted to localStorage key sb-sofurxihjwgmbosyzeib-auth-token",
+    "Dashboard /app: renders 'مساء الخير, محامي الاختبار', stats (3 قضايا قائمة, 3 جلسات قادمة, 1 عملاء), conflict alert chip '1 تعارض مواعيد', full sidebar for lawyer role",
+    "Cases /app/cases: 3 cards render — #4570242787, #4570778551, unknown_1783049079322#; grid & filter chips work",
+    "Case #4570242787 card: gold '#4570242787' top-right; blue pills 'العمالة العادية' + 'إنهاء العلاقة العمالية من صاحب العمل'; court 'المحكمة العمالية بالرياض'; circuit 'الدائرة العمالية الثامنة'; NO 'موضوع الدعوى' section on outer card (verified body count = 0); NO glued 'أطراف الدعوى الجلسات' or 'تصنيف القضية' run-together text anywhere on page",
+    "Case #4570778551 card: plaintiff 'امجد محمد محمود الموافي' (green), defendant 'شادي صلاح عبدالوهاب' (red), court 'المحكمة العامة بالرياض', circuit '25'",
+    "Case details dialog for #4570242787: title 'تفاصيل القضية #4570242787' clean; info tab shows subject 'ارغب في التقدم اليكم بطلب لرفع الظلم والضرر...' cleanly; testids present: detail-case-number, detail-subject-matter, detail-plaintiff-requests, detail-case-foundations, case-goto-judgments-btn, case-goto-memos-btn, case-goto-sessions-btn, case-goto-requests-btn",
+    "case-goto-sessions-btn navigates to /app/sessions?case=%224570242787%22 and displays filter banner 'عرض جلسات القضية #4570242787 (1)'",
+    "Cases page filters visible: cases-search-input, cases-search-party, cases-filter-status, cases-filter-classification, cases-view-grid-btn, cases-view-list-btn, cases-add-btn, cases-archived-toggle, case-archive-btn-*, case-delete-btn-*, case-status-select-*, case-transfer-select-* — all data-testids present",
+    "Sessions /app/sessions: conflict banner 'تنبيه: تعارض في مواعيد الجلسات (1)' with detail '2 جلسات في نفس الموعد – 17:06 05-07-2026 (4570778551, 4570242787)' visible",
+    "Sessions page hides placeholder: no 'unknown_1783049079322' visible in DOM anywhere; no glued 'تصنيف القضية...' labels; both real sessions listed cleanly with court names",
+    "Requests /app/lawsuit-requests: exactly ONE group card for #4570778551 with '3 طلب' badge; type badges present (طلب إيداع مذكرة, طلب الاعتراض على حكم, طلب نقض); dropdown 'اعرض طلباً' with option 'عرض الكل (3)'; expandable 'عرض كل الطلبات (3)' button; 'تفاصيل القضية' button; header stats '1 قضية · 3 طلب' and 5 tiles (القضايا 1, إجمالي الطلبات 3, طلب نقض 1, طلب الاعتراض على حكم 1, طلب إيداع مذكرة 1)",
+    "Requests page filters (search + case dropdown + type dropdown) and 'طلب جديد' button visible",
+    "Employee portal admin /app/employee-portal loads with title 'بوابة الموظفين والصلاحيات', description 'حدد الأقسام والقضايا والعملاء التي تظهر للموظف في بوابته', and 'حفظ التهيئة' button (empty because no employees seeded)",
+    "Client portal admin /app/client-portal loads with title 'بوابة العملاء', description, client list containing 'عميل الاختبار QA' (qa.client@adala-qa.com, badge غير مفعّل), and 'حفظ وتفعيل البوابة' CTA"
+  ],
+  "test_report_links": ["/app/.screenshots/13_dash.png", "/app/.screenshots/16_cases.png", "/app/.screenshots/17_case_details.png", "/app/.screenshots/19_sessions_all.png", "/app/.screenshots/20_requests.png", "/app/.screenshots/22_emp_portal.png", "/app/.screenshots/23_client_portal.png"],
+  "action_items": [
+    "HIGH: Fix post-login navigation in /src/routes/auth.tsx — navigate({to:'/app'}) is not landing user in /app after successful auth. Consider window.location.assign fallback, or ensure onAuthStateChange path always resolves after handleSubmit completes.",
+    "HIGH: Seed a QA employee (qa.employee1@adala-qa.com) or ensure the employee portal E2E instructions include creating the employee via /app/employees first — currently the seeded data has the QA client but no QA employee, so the employee E2E cannot be executed end-to-end.",
+    "MEDIUM: Investigate intermittent Vite dev 'Failed to fetch dynamically imported module' for @tanstack/react-start client.tsx on route changes; consider pinning optimizeDeps.include or disabling optimizer reloads mid-session.",
+    "LOW: Root layout SSR/client mismatch on data-tsd-source attribute — either strip it in SSR or move to a client-only wrapper."
+  ],
+  "critical_code_review_comments": [
+    "/app/frontend/src/integrations/supabase/client.server.ts and auth-middleware.ts referenced process.env.SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY / SUPABASE_SERVICE_ROLE_KEY with NO fallback, while env.ts already exported hardcoded production defaults — inconsistency broke every server function including linkPortalAccount. NOW FIXED with matching DEFAULT_* fallbacks in both files.",
+    "auth.functions.ts (linkPortalAccount) is invoked on every sign-in even when there is no pending portal link — consider short-circuiting when localStorage has no adala:pending-portal-link.",
+    "cases-view.ts / najiz-parse.ts display-layer parsing is working correctly for the QA blob case — no regressions detected on the outer card labels."
+  ],
+  "updated_files": [
+    "/app/frontend/src/integrations/supabase/client.server.ts (added DEFAULT_SUPABASE_URL / DEFAULT_SUPABASE_SERVICE_ROLE_KEY fallbacks)",
+    "/app/frontend/src/integrations/supabase/auth-middleware.ts (added DEFAULT_SUPABASE_URL / DEFAULT_SUPABASE_PUBLISHABLE_KEY fallbacks)"
+  ],
+  "success_rate": {"backend": "n/a (frontend-only test; Supabase auth + serverFn 200 OK)", "frontend": "~85% — all display features verified; employee portal E2E blocked by missing seeded employee; login redirect broken (workaround: full page nav)"},
+  "test_credentials": "Lawyer: test.lawyer@adala-qa.com / AdalaQA2026! (works). Employee qa.employee1@adala-qa.com and client qa.client@adala-qa.com are provisioned on demand.",
+  "seed_data_creation": "None. The QA client 'عميل الاختبار QA' is already seeded; no QA employee row exists yet in the employees table for this lawyer's office.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "1) Login form fields must be typed via page.keyboard.type after wait_for_load_state('networkidle') + extra 4s timeout to let hydration finish; fill() before hydration silently drops values and the form re-renders empty. 2) Post-login redirect is broken — use await page.evaluate(\"window.location.assign('/app')\") after login. 3) Cloudflare bot-check can appear if you make too many rapid /app requests — sleep 30+ s between browser_automation invocations. 4) Employee-portal E2E requires creating a QA employee via /app/employees first (form fields: name, email qa.employee1@adala-qa.com, phone). The seeded client 'عميل الاختبار QA' (qa.client@adala-qa.com) is available for the client-portal E2E. 5) All required data-testids are present on cases, sessions and requests pages (see passed_tests). 6) Do NOT delete/modify Supabase rows owned by other users — only touch data linked to test.lawyer@adala-qa.com.",
+  "rca of the issue": "PRIMARY BUG: auth.functions.ts (linkPortalAccount server function) was throwing 'Missing Supabase environment variable(s): SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY' during login because /src/integrations/supabase/client.server.ts and /src/integrations/supabase/auth-middleware.ts both read process.env.SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY / SUPABASE_SERVICE_ROLE_KEY with NO fallback, while the sibling /src/integrations/supabase/env.ts exports hardcoded production defaults for the client bundle. In this preview environment those env vars are not set on the Node/Vite SSR side, so every serverFn using supabaseAdmin or requireSupabaseAuth failed hard, and the completeSignIn() catch block toasted the error. FIX: added matching DEFAULT_SUPABASE_URL / DEFAULT_SUPABASE_PUBLISHABLE_KEY / DEFAULT_SUPABASE_SERVICE_ROLE_KEY fallbacks to client.server.ts and auth-middleware.ts (values mirror env.ts). After the fix, /auth/v1/token returned 200 and the serverFn also returned 200. SECONDARY BUG (unresolved): even with the serverFn succeeding, navigate({to:'/app', replace:true}) at auth.tsx line 90 does not change the browser URL. Main agent must debug this router-navigate call."
+}

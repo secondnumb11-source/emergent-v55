@@ -279,6 +279,7 @@ export function CaseDetailView({
               <InfoField label="نوع القضية" value={v.typeDetail} />
               <InfoField label="المحكمة" value={v.court} />
               <InfoField label="رقم الدائرة" value={v.circuit} />
+              {(v as any).degree && <InfoField label="درجة التقاضي" value={(v as any).degree} />}
               <InfoField label="تاريخ القيد" value={formatDate(v.registeredAt)} />
               <InfoField label="الحالة" value={STATUS_LABEL[caseData.status] || "مفتوحة"} />
               {v.deedNumber && <InfoField label="رقم الصك / الحكم" value={v.deedNumber} />}

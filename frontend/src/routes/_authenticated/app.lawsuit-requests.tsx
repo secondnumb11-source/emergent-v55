@@ -45,6 +45,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useList, useUpsert, useDelete } from "@/lib/data-hooks";
+import { extractCaseNumber } from "@/lib/najiz-parse";
+
+// Requests can arrive from the bot with glued case numbers — always display/group
+// on the extracted clean number.
+const cleanCase = (v: any): string => {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  return extractCaseNumber(s) || s;
+};
 
 const searchSchema = z.object({
   case: fallback(z.string(), "").default(""),
@@ -111,7 +120,7 @@ const DOCUMENT_TYPES = [
 function dedupe(list: LawsuitRequest[]): LawsuitRequest[] {
   const map = new Map<string, LawsuitRequest>();
   for (const r of list) {
-    const key = `${(r.case_number || "").trim()}|${(r.request_number || "").trim()}|${(r.request_type || "").trim()}`;
+    const key = `${cleanCase(r.case_number)}|${(r.request_number || "").trim()}|${(r.request_type || "").trim()}`;
     if (!map.has(key)) map.set(key, r);
   }
   return Array.from(map.values());
@@ -176,7 +185,8 @@ function LawsuitRequestsPage() {
   const caseNumbers = useMemo(() => {
     const set = new Set<string>();
     requests.forEach((r) => {
-      if (r.case_number) set.add(String(r.case_number));
+      const n = cleanCase(r.case_number);
+      if (n) set.add(n);
     });
     return Array.from(set).sort();
   }, [requests]);
@@ -192,8 +202,7 @@ function LawsuitRequestsPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return requests.filter((r) => {
-      if (caseFilter && String(r.case_number || "").trim() !== String(caseFilter).trim())
-        return false;
+      if (caseFilter && cleanCase(r.case_number) !== cleanCase(caseFilter)) return false;
       if (typeFilter && r.request_type !== typeFilter) return false;
       if (q) {
         const hay =
@@ -208,7 +217,7 @@ function LawsuitRequestsPage() {
   const grouped = useMemo(() => {
     const map = new Map<string, LawsuitRequest[]>();
     for (const r of filtered) {
-      const key = r.case_number || "غير محدد";
+      const key = cleanCase(r.case_number) || "غير محدد";
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(r);
     }
@@ -230,7 +239,8 @@ function LawsuitRequestsPage() {
     const byStatus: Record<string, number> = {};
     const caseSet = new Set<string>();
     for (const r of requests) {
-      if (r.case_number) caseSet.add(r.case_number);
+      const n = cleanCase(r.case_number);
+      if (n) caseSet.add(n);
       const t = r.request_type || "بدون نوع";
       byType[t] = (byType[t] || 0) + 1;
       const s = r.request_status || "بدون حالة";

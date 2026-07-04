@@ -94,6 +94,10 @@ const EMPLOYEE_SECTION_TO_PATHS: Record<string, string[]> = {
   verification: ["/app/verification"],
 };
 
+// Legacy section ids stored by older versions of the config UI.
+const SECTION_ALIASES: Record<string, string> = { executions: "execution", poas: "powers" };
+const normalizeSection = (s: string) => SECTION_ALIASES[s] || s;
+
 export const Route = createFileRoute("/_authenticated/app")({
   component: AppLayout,
 });
@@ -237,18 +241,26 @@ function AppLayout() {
       if (isEmployee) {
         const { data: emp } = await supabase
           .from("employees")
-          .select("full_name, portal_config")
+          .select("full_name, portal_config, permissions")
           .eq("user_id", user.id)
           .maybeSingle();
-        // Build allowed paths from employee portal_config.permissions if present
+        // Effective permissions: structured portal_config first, then the
+        // legacy `permissions` column (older saves stored only the column).
         let allowedPaths: Set<string> | null = null;
         try {
           const cfg = parsePortalConfig((emp as any)?.portal_config ?? null);
-          if (cfg.permissions && cfg.permissions.length) {
+          const effective: string[] = cfg.permissions?.length
+            ? cfg.permissions
+            : Array.isArray((emp as any)?.permissions)
+              ? ((emp as any).permissions as string[])
+              : [];
+          if (effective.length) {
             allowedPaths = new Set<string>(["/app"]);
-            cfg.permissions.forEach((sec) =>
-              (EMPLOYEE_SECTION_TO_PATHS[sec] || []).forEach((p) => allowedPaths!.add(p)),
-            );
+            effective
+              .map(normalizeSection)
+              .forEach((sec) =>
+                (EMPLOYEE_SECTION_TO_PATHS[sec] || []).forEach((p) => allowedPaths!.add(p)),
+              );
           }
         } catch {
           allowedPaths = null;

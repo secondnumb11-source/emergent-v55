@@ -429,6 +429,10 @@ function PowersPage() {
   );
 }
 
+function displayWakalahNumber(parsed: { wakalahNumber?: string | null }, row: PowerRow) {
+  return parsed.wakalahNumber || row.wakalah_number || null;
+}
+
 function PowerDetailView({
   row,
   clientName,

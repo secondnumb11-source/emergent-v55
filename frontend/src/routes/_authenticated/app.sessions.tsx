@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { CrudDialog, type Field } from "@/components/crud-dialog";
 import { DataTable } from "@/components/data-table";
 import { useList, useUpsert, useDelete } from "@/lib/data-hooks";
+import { looksLikeBlob, pickField, extractCaseNumber } from "@/lib/najiz-parse";
 import { toast } from "sonner";
 import { CalendarModeToggle } from "@/components/calendar-mode-toggle";
 import { useCalendarMode, formatDateByMode } from "@/hooks/use-calendar-mode";
@@ -84,6 +85,21 @@ type ClientRow = { id: string; full_name: string; phone?: string | null };
 function ymd(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
+
+/** Clean display label for a case — never show glued/placeholder titles. */
+function caseLabel(c?: CaseRow | null): string {
+  if (!c) return "—";
+  const num = extractCaseNumber(c.case_number) || c.case_number || "";
+  const t = String(c.title || "").trim();
+  if (!t || /^قضية \(من جلسة\)|^unknown[_-]?/i.test(t)) return `قضية #${num}`;
+  if (looksLikeBlob(t)) {
+    const p = pickField(t, "plaintiff");
+    const d = pickField(t, "defendant");
+    if (p && d) return `${num} – ${p} ضد ${d}`;
+    return `قضية #${num}`;
+  }
+  return `${num} – ${t}`;
+}
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -97,7 +113,7 @@ function googleCalendarUrl(s: SessionRow, c?: CaseRow) {
   const end = new Date(start.getTime() + 60 * 60 * 1000);
   const fmt = (d: Date) =>
     `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}00Z`;
-  const text = c ? `جلسة قضية ${c.case_number} – ${c.title}` : "جلسة قضائية";
+  const text = c ? `جلسة ${caseLabel(c)}` : "جلسة قضائية";
   const details = [s.notes, s.court ? `المحكمة: ${s.court}` : "", s.room ? `القاعة: ${s.room}` : ""]
     .filter(Boolean)
     .join("\n");
@@ -119,7 +135,7 @@ function downloadICS(sessions: SessionRow[], cases: Record<string, CaseRow>) {
       const end = toICSDate(
         new Date(new Date(s.session_date).getTime() + 60 * 60 * 1000).toISOString(),
       );
-      const title = c ? `جلسة ${c.case_number} – ${c.title}` : "جلسة قضائية";
+      const title = c ? `جلسة ${caseLabel(c)}` : "جلسة قضائية";
       const desc = [
         s.notes ?? "",
         s.court ? `المحكمة: ${s.court}` : "",
@@ -198,21 +214,22 @@ function SessionsPage() {
       const hasDefendant = parties.some(
         (p: any) => p.party_type === "defendant" && String(p.party_name || "").trim(),
       );
+      const placeholder =
+        /^قضية \(من جلسة\)/.test(c.title || "") ||
+        /^unknown[_-]?/i.test(String(c.case_number || "")) ||
+        /^unknown[_-]?/i.test(c.title || "");
       const court = c.court || d?.court_name;
       const caseType = d?.case_type_detail || d?.case_classification;
-      const subject = d?.subject_matter || c.description;
+      const subject = d?.subject_matter || (placeholder ? null : c.description);
       const circuit = c.circuit_number || d?.circuit_number;
-      const cleanTitle =
-        c.case_number && (c.title || "").trim() && !/^unknown[_-]?/i.test(c.title || "");
-      if (hasPlaintiff || hasDefendant || court || caseType || subject || circuit || cleanTitle)
-        set.add(c.id);
+      if (hasPlaintiff || hasDefendant || court || caseType || subject || circuit) set.add(c.id);
     }
     return set;
   }, [cases, caseParties, caseDetails]);
 
   const isMeaningful = (s: SessionRow) => {
-    // The session's own fields (court / circuit / notes) also qualify it.
-    if (s.court || s.room || s.notes) return true;
+    // The session's own fields (court / circuit) also qualify it.
+    if (s.court || s.room) return true;
     return !!(s.case_id && meaningfulCaseIds.has(s.case_id));
   };
   const sessions = useMemo(
@@ -297,7 +314,7 @@ function SessionsPage() {
       type: "select",
       required: true,
       full: true,
-      options: cases.map((c) => ({ value: c.id, label: `${c.case_number} – ${c.title}` })),
+      options: cases.map((c) => ({ value: c.id, label: caseLabel(c) })),
     },
     { name: "session_date", label: "تاريخ ووقت الجلسة", type: "datetime-local", required: true },
     {
@@ -587,7 +604,7 @@ function SessionsPage() {
                       <div className="mt-2">
                         <div className="flex items-center gap-1.5 text-sm font-bold">
                           <Gavel className="h-3.5 w-3.5 text-primary" />
-                          {c.case_number} – {c.title}
+                          {caseLabel(c)}
                         </div>
                         {cl && (
                           <div className="text-[11px] text-muted-foreground mt-0.5">
@@ -676,7 +693,7 @@ function SessionsPage() {
                       </Badge>
                     </div>
                     <div className="text-xs font-bold mt-1">
-                      {c ? `${c.case_number} – ${c.title}` : "—"}
+                      {c ? caseLabel(c) : "—"}
                     </div>
                   </button>
                 );
@@ -700,7 +717,7 @@ function SessionsPage() {
                 header: "القضية",
                 render: (r: any) => {
                   const c = caseMap[r.case_id];
-                  return c ? `${c.case_number} – ${c.title}` : "—";
+                  return c ? caseLabel(c) : "—";
                 },
               },
               { key: "court", header: "المحكمة" },

@@ -184,14 +184,7 @@ export function CaseCard({
           )}
         </div>
 
-        {v.subjectMatter && (
-          <div className="mb-2.5 p-2 rounded-xl border border-slate-200 bg-slate-50/70">
-            <span className="text-[10px] font-black text-[#5a4510] block mb-0.5">موضوع الدعوى</span>
-            <p className="text-[11px] font-semibold text-slate-700 leading-relaxed line-clamp-2 break-words m-0">
-              {v.subjectMatter}
-            </p>
-          </div>
-        )}
+        {/* موضوع الدعوى يُعرض داخل كارت التفاصيل فقط — لا يظهر على الكارت الخارجي */}
 
         <div className="mb-2.5 space-y-1 text-[#1a1208]">
           {v.court && (

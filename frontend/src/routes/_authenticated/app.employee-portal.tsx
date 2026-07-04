@@ -138,8 +138,22 @@ function EmployeePortalPage() {
     setCredUsername(employee.full_name || "");
     setCredPassword("");
     setWaPhone(employee.phone || "");
-    setIssuedCreds(null);
-    setWaTemplate("");
+    // If the employee is already provisioned, rebuild the welcome template
+    // immediately from the stored credentials so it survives reloads/updates.
+    if (employee.user_id) {
+      const creds = {
+        username: (employee as any).portal_username || employee.full_name || employee.email || "",
+        password: "(كما تم تعيينها سابقاً — لتغييرها استخدم زر التحديث)",
+        access_code:
+          (employee as any).portal_access_code || "(اضغط «تفعيل الحساب» لإصدار رمز جديد)",
+        email: employee.email || "",
+      };
+      setIssuedCreds(creds);
+      setWaTemplate(buildTemplate(creds));
+    } else {
+      setIssuedCreds(null);
+      setWaTemplate("");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employee?.id]);
 

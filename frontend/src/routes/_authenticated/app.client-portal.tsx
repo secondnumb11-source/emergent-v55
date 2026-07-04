@@ -30,6 +30,7 @@ import { provisionClientPortal, revokeClientPortal } from "@/lib/client-portal.f
 import { sendPortalPasswordReset, listClientLoginLogs } from "@/lib/client-portal-admin.functions";
 import { ClientTimeline } from "@/components/client-timeline";
 import { parsePortalConfig } from "@/lib/client-portal-config";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 
@@ -162,6 +163,21 @@ function ClientPortalSetupPage() {
     enabled: !!clientId,
   });
 
+  // Stored access code — lets the share card & message template survive reloads.
+  const credsQ = useQuery({
+    queryKey: ["client-portal-access-code", clientId],
+    enabled: !!clientId,
+    queryFn: async () => {
+      const { data } = await (supabase as any)
+        .from("client_portal_credentials")
+        .select("portal_access_code")
+        .eq("client_id", clientId)
+        .maybeSingle();
+      return (data?.portal_access_code as string) ?? null;
+    },
+  });
+  const accessCode = lastResult?.access_code || credsQ.data || "";
+
   const portalUrl = typeof window !== "undefined" ? `${window.location.origin}/auth` : "/auth";
 
   const buildMessage = () =>
@@ -170,25 +186,34 @@ function ClientPortalSetupPage() {
       `تم تفعيل بوابتك على منصة العدالة للاطلاع على بيانات قضاياك.`,
       ``,
       `رابط الدخول: ${portalUrl}`,
-      `البريد: ${email}`,
-      password ? `كلمة السر: ${password}` : `كلمة السر: (تم إرسالها سابقاً)`,
-      lastResult?.access_code ? `رمز البوابة: ${lastResult.access_code}` : "",
+      `اسم المستخدم: ${username || client?.full_name || email}`,
+      `البريد: ${lastResult?.email || email}`,
+      password ? `كلمة السر: ${password}` : `كلمة السر: (كما تم تعيينها سابقاً)`,
+      accessCode ? `رمز البوابة: ${accessCode}` : "",
       ``,
       `للدخول: افتح الرابط، اختر «عميل»، وأدخل البريد وكلمة السر.`,
     ]
       .filter(Boolean)
       .join("\n");
 
+  // Editable welcome-message template — always ready once the portal is active.
+  const [msgText, setMsgText] = useState("");
+  useEffect(() => {
+    if (clientId && (lastResult || client?.portal_user_id)) setMsgText(buildMessage());
+    else setMsgText("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, lastResult, accessCode, email, username, password, client?.portal_user_id]);
+
   const sendWhatsApp = () => {
     const phone = (client?.phone || "").replace(/[^\d]/g, "");
-    const text = encodeURIComponent(buildMessage());
+    const text = encodeURIComponent(msgText || buildMessage());
     const url = phone ? `https://wa.me/${phone}?text=${text}` : `https://wa.me/?text=${text}`;
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const copyAll = async () => {
-    await navigator.clipboard.writeText(buildMessage());
-    toast.success("تم نسخ بيانات البوابة");
+    await navigator.clipboard.writeText(msgText || buildMessage());
+    toast.success("تم نسخ رسالة البوابة كاملة");
   };
 
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => {

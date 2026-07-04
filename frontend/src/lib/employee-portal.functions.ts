@@ -72,6 +72,8 @@ export const provisionEmployeePortal = createServerFn({ method: "POST" })
     const update: Record<string, unknown> = {
       user_id: portalUserId,
       email,
+      portal_username: data.username || email,
+      portal_access_code: accessCode,
     };
     const { error: uErr } = await (supabaseAdmin as any)
       .from("employees")
